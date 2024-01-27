@@ -2,15 +2,15 @@ import logging
 import pytest
 import time
 
-from skorch import skorch
+from skorche import skorche
 
 def test_task_can_be_called_like_function():
     """Test that decorated functions can still be called like normal functions"""
-    @skorch.task
+    @skorche.task
     def add_two(x: float):
         return x + 2.0 
 
-    @skorch.task
+    @skorche.task
     def square(x: float):
         return x * x 
     
@@ -25,14 +25,13 @@ def test_task_can_be_called_like_function():
 def test_task_has_task_name():
     """Test default decorator gives a task name, or that task name can be provided"""
 
-    @skorch.task
+    @skorche.task
     def my_default_task():
         return True
     
-    @skorch.task(task_name="Example task")
+    @skorche.task(task_name="Example task")
     def my_example_task():
         return True
 
-    assert my_default_task.task_name == skorch.TASK_DEFAULT_NAME
+    assert my_default_task.task_name == skorche.TASK_DEFAULT_NAME
     assert my_example_task.task_name == "Example task"
-
