@@ -1,13 +1,22 @@
 
 import logging
 
+TASK_DEFAULT_NAME = "skorch task" 
+
+LOG_SENTINEL = "EOF"
+
 class Task:
     """Base class for task"""
 
-    def __init__(self, task_name, max_workers, logger):
+    def __init__(self, func, task_name=TASK_DEFAULT_NAME, max_workers=1, logger=logging.getLogger()):
+        self.perform_task = func
         self.task_name = task_name
         self.max_workers = max_workers
         self.logger = logger 
+
+    def __call__(self, *args, **kwargs):
+        result = self.perform_task(*args, **kwargs)
+        return result
 
     def handle_task(self, id, queue_in, queue_out):
         self.logger(f"Handling task {id}")
@@ -33,28 +42,26 @@ class Task:
             finally:
                 queue_in.task_done()
                 if task is None:
-                    self.logger.info(f"EOF")
+                    self.logger.info(LOG_SENTINEL)
 
                     sentinel_reached = True
 
-    def perform_task(self, task):
-        pass
+def task(task_name=TASK_DEFAULT_NAME, max_workers=1, logger=logging.getLogger()):
 
+    if callable(task_name):
+        # pattern where user decorated function with @task
+        
+        func = task_name
+        return Task(func)
 
-def task(func, task_name = "Task", max_workers = 1, logger = logging.getLogger()):
+    else:
+        # pattern where user decorated with @task(task_name=...)
 
-
-    def wrapper(*args, **kwargs):
-        _task = Task(task_name=task_name, max_workers=max_workers, logger=logger)
-        func(*args, **kwargs)
-
-    return wrapper
-
-
-
-def run(task_func, *args, **kwargs):
-    task_func(*args, **kwargs)
-
+        def decorator(func):
+            task_instance = Task(func, task_name, max_workers, logger)
+            return task_instance
+        return decorator
 
 class Pipeline:
-    def put()
+    def put():
+        pass
