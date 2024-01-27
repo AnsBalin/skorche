@@ -47,10 +47,24 @@ class Task:
                     sentinel_reached = True
 
 def task(task_name=TASK_DEFAULT_NAME, max_workers=1, logger=logging.getLogger()):
+    """
+    @task decorator which wraps a user function into a Task instance.
 
+    Usage:
+    -Decorate with no arguments. Will instantiate Task() with default parameters.
+        @task
+        def my_fun():
+            pass 
+
+    -Decorate with arguments. Arguments are passed to Task() constructor
+        @task(task_name="My Task", max_workers=2)
+        def my_fun():
+            pas
+
+    """
     if callable(task_name):
         # pattern where user decorated function with @task
-        
+
         func = task_name
         return Task(func)
 
