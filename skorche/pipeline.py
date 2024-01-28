@@ -18,6 +18,16 @@ class PipelineManager:
         self.node_table[id(queue_out)] = queue_out
 
         self.task_table[id(task)] = {'queue_in': id(queue_in), 'queue_out': id(queue_out)}
+        return queue_out
+
+    def run(self):
+        for (task, queue_dict) in self.task_table.items():
+            task = self._get(task)
+            queue_in = self._get(queue_dict['queue_in'])
+            queue_out = self._get(queue_dict['queue_out'])
+            while not queue_in.empty():
+                x = queue_in.get()
+                queue_out.put(task(x))
 
     def _get(self, id: int) -> Node:    
         """Return Node object from table"""
