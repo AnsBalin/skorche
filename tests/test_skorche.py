@@ -4,6 +4,13 @@ import time
 
 import skorche
 
+@pytest.fixture(autouse=True)
+def skorche_init():
+    skorche.init()
+    time.sleep(0.0)
+    yield
+    
+
 def test_task_can_be_called_like_function():
     """Test that decorated functions can still be called like normal functions."""
     @skorche.task
@@ -51,7 +58,6 @@ def test_render_pipeline():
         return x + 1.0
 
     queue_out = skorche.map(add_one, queue_in, queue_out=queue_out)
-
     skorche._global_pipeline.render_pipeline()
 
 def test_map_and_run():
@@ -68,11 +74,76 @@ def test_map_and_run():
 
     for i in inputs:
         queue_in.put(i)
+    queue_in.put(skorche.QUEUE_SENTINEL)
 
     skorche.run()
 
     results = []
-    while not queue_out.empty():
-        results.append(queue_out.get())
+    while True:
+        result = queue_out.get()
+        queue_out.task_done()
 
+        if result == skorche.QUEUE_SENTINEL:
+            break
+        else:
+            results.append(result)
+
+    skorche.shutdown()
+    assert results == expected
+
+def test_push_to_queue():
+    """Unit test for skorche.push_to_queue()"""
+
+    inputs = [1, 5, 6, 7]
+    expected = inputs + [skorche.QUEUE_SENTINEL]
+
+    queue = skorche.Queue()
+    skorche.push_to_queue(inputs, queue)
+
+    results = []
+    while True:
+        result = queue.get()    
+        queue.task_done()
+        results.append(result)
+        if result == skorche.QUEUE_SENTINEL:
+            break 
+
+    assert results == expected
+
+def test_chain():
+    """Creates a chained pipeline of three tasks"""
+
+    @skorche.task(name="add_one")
+    def add_one(x: int):
+        return x + 1
+    
+    @skorche.task(name="multiply_two")
+    def multiply_two(x: int):
+        return 2 * x
+
+    @skorche.task(name="square")
+    def square(x: int):
+        return x * x
+
+    inputs = [1, 5, -2, 12, 100]
+    expected = [(2 * (x + 1))**2 for x in inputs]
+
+    queue_in = skorche.Queue("inputs")
+    skorche.push_to_queue(inputs, queue_in)
+
+    queue_out = skorche.chain([add_one, multiply_two, square], queue_in)
+    skorche._global_pipeline.render_pipeline()
+    skorche.run()
+
+    results = []
+    while True:
+        result = queue_out.get()
+        queue_out.task_done()
+
+        if result == skorche.QUEUE_SENTINEL:
+            break
+        else:
+            results.append(result)
+
+    skorche.shutdown()
     assert results == expected

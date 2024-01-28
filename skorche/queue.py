@@ -17,6 +17,9 @@ class Queue(Node):
     def get(self):
         return self.queue.get()
 
+    def task_done(self):
+        self.queue.task_done()  
+
 
 
 

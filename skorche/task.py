@@ -1,5 +1,6 @@
 from .constants import *
 from .node import NodeType, Node
+from .queue import Queue
 import logging
 
 class Task(Node):
@@ -10,14 +11,12 @@ class Task(Node):
         self.perform_task = func
         self.name = name
         self.max_workers = max_workers
-        self.logger = logger 
 
     def __call__(self, *args, **kwargs):
         result = self.perform_task(*args, **kwargs)
         return result
 
-    def handle_task(self, id, queue_in, queue_out):
-        self.logger(f"Handling task {id}")
+    def handle_task(self, worker_id: int, queue_in: Queue, queue_out: Queue):
 
         sentinel_reached = False
         
@@ -25,24 +24,22 @@ class Task(Node):
             try:
                 task = queue_in.get()
 
-                if task is not None:
+                if task is not QUEUE_SENTINEL:
                     result = self.perform_task(task)
-                    self.logger.info("Task complete")
 
             except Exception as e:
-                self.logger.error("Task error")
+                pass
 
             else:
-                
-                if task is not None:
+                if task is not QUEUE_SENTINEL:
                     queue_out.put(result)
             
             finally:
                 queue_in.task_done()
-                if task is None:
-                    self.logger.info(LOG_SENTINEL)
-
+                if task is QUEUE_SENTINEL:
+                    queue_out.put(QUEUE_SENTINEL)
                     sentinel_reached = True
+
 
 def task(name=TASK_DEFAULT_NAME, max_workers=1, logger=logging.getLogger()):
     """
