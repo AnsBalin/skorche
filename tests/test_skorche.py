@@ -91,6 +91,12 @@ def test_map_and_run():
     skorche.shutdown()
     assert results == expected
 
+def test_init_fixed_queue():
+    """Test queue with fixed_inputs is initialized correctly"""
+    q = skorche.Queue(fixed_inputs=[1, 2, 3])
+    assert [q.get() for _ in range(4)] == [1, 2, 3, skorche.QUEUE_SENTINEL]
+    
+
 def test_push_to_queue():
     """Unit test for skorche.push_to_queue()"""
 
@@ -147,3 +153,42 @@ def test_chain():
 
     skorche.shutdown()
     assert results == expected
+
+def test_split():
+    """Split a queue and test task items exist and are not duplicated"""
+
+    def predicate_fn(x):
+        return x > 0
+
+    q = skorche.Queue(fixed_inputs=[-2, 1, 4, -1, 7])
+
+    (q_pos, q_neg) = skorche.split(predicate_fn, q)
+
+
+    pos_sentinel_reached = False
+    neg_sentinel_reached = False
+    pos_out = []
+    neg_out = []
+    while not (pos_sentinel_reached and neg_sentinel_reached):
+        #TODO: this while True will later be inside skorche.run()
+        skorche.run()
+
+        if not (pos_sentinel_reached or q_pos.empty()):
+            val = q_pos.get()
+            pos_out.append(val)
+
+            if val == skorche.QUEUE_SENTINEL:
+                pos_sentinel_reached = True
+
+        if not (neg_sentinel_reached or q_neg.empty()):
+            val = q_neg.get()
+            neg_out.append(val)
+
+            if val == skorche.QUEUE_SENTINEL:
+                neg_sentinel_reached = True
+
+    assert pos_out == [1, 4, 7, skorche.QUEUE_SENTINEL]
+    assert neg_out == [-2, -1, skorche.QUEUE_SENTINEL]
+
+
+    

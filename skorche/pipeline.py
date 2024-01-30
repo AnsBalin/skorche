@@ -1,11 +1,13 @@
 # package imports
 from .node import Node, NodeType
+from .op import SplitOp
 from .queue import Queue
 from .task import Task
 
+
 # standard library imports
 import concurrent.futures
-from typing import List
+from typing import Callable, List, Tuple
 
 # dependency imports
 from graphviz import Digraph
@@ -15,11 +17,12 @@ class PipelineManager:
 
     def __init__(self):
         self.task_table = {}
+        self.ops = []
         self.node_table = {}
         self.pool_table = {}
 
     def map(self, task: Task, queue_in: Queue, queue_out=Queue()) -> Queue: 
-
+        #TODO: just use the objects are keys
         self.node_table[id(task)] = task
         self.node_table[id(queue_in)] = queue_in
         self.node_table[id(queue_out)] = queue_out
@@ -42,7 +45,14 @@ class PipelineManager:
             queue_out = self.map(task, queue_out, Queue())
 
         return queue_out
-            
+
+    def split(self, predicate_fn: Callable, queue_in: Queue, predicate_values: Tuple = (True, False)) -> Tuple[Queue]:
+
+        out_queue_map = {value: Queue() for value in predicate_values}
+        op = SplitOp(predicate_fn, queue_in, out_queue_map)
+        self.ops.append(op)
+
+        return (out_queue_map[value] for value in predicate_values)
 
     def run(self):
 
@@ -50,7 +60,8 @@ class PipelineManager:
             task = self._get(task_id)
             queue_in = self._get(queue_dict['queue_in'])
             queue_out = self._get(queue_dict['queue_out'])
-            
+
+            #TODO: Rather than one pool per task, have one centrally managed pool
             process_pool = concurrent.futures.ThreadPoolExecutor(
                 max_workers = task.max_workers
             )
@@ -59,6 +70,11 @@ class PipelineManager:
 
             for worker_id in range(task.max_workers):
                 process_pool.submit(task.handle_task, worker_id, queue_in, queue_out)
+
+        #TODO: Op nodes should be handled elsewhere, not here in the main thread.
+        #TODO: ops need to run continuouslty in while True loop
+        for op in self.ops:
+            op.handle_op() 
         
     def shutdown(self):
         for pool in self.pool_table.values():
@@ -70,6 +86,12 @@ class PipelineManager:
     def _get(self, id: int) -> Node:    
         """Return Node object from table"""
         return self.node_table[id]
+
+    def graph_analyzer(self) -> None:
+        """To be implemented. For now here is a running list of asserts we should make in the future
+            * TODO: Assert each Op node is the only consumer for it's queue (they rely on q.empty())
+        """
+        pass
     
     def render_pipeline(self) -> None:
         """Render pipeline to png"""
