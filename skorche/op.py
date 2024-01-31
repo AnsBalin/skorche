@@ -18,6 +18,7 @@ class SplitOp(Op):
         self.predicate_fn = predicate_fn
         self.queue_in = queue_in
         self.queue_out_dict = queue_out_dict    
+        self.shutdown = False
 
     def handle_op(self):
         """
@@ -29,6 +30,7 @@ class SplitOp(Op):
             task_item = self.queue_in.get()
 
             if task_item == QUEUE_SENTINEL:
+                # push sentinel to output queues and set shutdown flag
                 self.handle_sentinel()
             
             else:
@@ -36,10 +38,14 @@ class SplitOp(Op):
                 queue_to_push = self.queue_out_dict[predicate_value]
                 queue_to_push.put(task_item)
 
+        return self.shutdown
+
     def handle_sentinel(self):
         """Push the sentinel to all consumers"""
 
         for queue_out in self.queue_out_dict.values():
             queue_out.put(QUEUE_SENTINEL)
+        
+        self.shutdown = True
 
         

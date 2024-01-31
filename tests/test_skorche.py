@@ -165,30 +165,32 @@ def test_split():
     (q_pos, q_neg) = skorche.split(predicate_fn, q)
 
 
+    skorche.run()
+
     pos_sentinel_reached = False
     neg_sentinel_reached = False
     pos_out = []
     neg_out = []
-    while not (pos_sentinel_reached and neg_sentinel_reached):
-        #TODO: this while True will later be inside skorche.run()
-        skorche.run()
 
-        if not (pos_sentinel_reached or q_pos.empty()):
-            val = q_pos.get()
-            pos_out.append(val)
+    while True:
+        result = q_pos.get()
+        q_pos.task_done()
 
-            if val == skorche.QUEUE_SENTINEL:
-                pos_sentinel_reached = True
+        if result == skorche.QUEUE_SENTINEL:
+            break
+        else: 
+            pos_out.append(result)
+    while True:
+        result = q_neg.get()
+        q_neg.task_done()
 
-        if not (neg_sentinel_reached or q_neg.empty()):
-            val = q_neg.get()
-            neg_out.append(val)
+        if result == skorche.QUEUE_SENTINEL:
+            break
+        else: 
+            neg_out.append(result)
 
-            if val == skorche.QUEUE_SENTINEL:
-                neg_sentinel_reached = True
-
-    assert pos_out == [1, 4, 7, skorche.QUEUE_SENTINEL]
-    assert neg_out == [-2, -1, skorche.QUEUE_SENTINEL]
+    assert pos_out == [1, 4, 7]
+    assert neg_out == [-2, -1]
 
 
     

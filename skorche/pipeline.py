@@ -72,9 +72,14 @@ class PipelineManager:
                 process_pool.submit(task.handle_task, worker_id, queue_in, queue_out)
 
         #TODO: Op nodes should be handled elsewhere, not here in the main thread.
-        #TODO: ops need to run continuouslty in while True loop
-        for op in self.ops:
-            op.handle_op() 
+        while len(self.ops):
+            for op in self.ops:
+                # Op node returns a shutdown signal when it handles the queue sentinel.
+                shutdown = op.handle_op() 
+
+                if shutdown:
+                    self.ops.remove(op)
+
         
     def shutdown(self):
         for pool in self.pool_table.values():
