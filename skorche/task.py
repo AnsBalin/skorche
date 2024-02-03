@@ -16,6 +16,9 @@ class Task(Node):
         result = self.perform_task(*args, **kwargs)
         return result
 
+    def __str__(self):
+       return self.name 
+
     def handle_task(self, worker_id: int, queue_in: Queue, queue_out: Queue):
 
         sentinel_reached = False
@@ -61,7 +64,7 @@ def task(name=TASK_DEFAULT_NAME, max_workers=1, logger=logging.getLogger()):
         # pattern where user decorated function with @task
 
         func = name
-        return Task(func)
+        return Task(func, name=func.__name__)
 
     else:
         # pattern where user decorated with @task(name=...)

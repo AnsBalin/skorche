@@ -14,14 +14,15 @@ class SplitOp(Op):
 
     def __init__(self, predicate_fn: Callable, queue_in: Queue, queue_out_dict: Dict):
         """Op node for splitting a queue based on a predicate function"""
+        super().__init__()
 
         self.predicate_fn = predicate_fn
         self.queue_in = queue_in
         self.queue_out_dict = queue_out_dict    
         self.shutdown = False
 
-    def __repr__(self):
-        return "SplitOp"
+    def __str__(self):
+        return f"SplitOp({self.predicate_fn.__name__})"
 
     def handle_op(self):
         """
@@ -56,6 +57,7 @@ class MergeOp(Op):
 
     def __init__(self, queues_in: Tuple[Queue], queue_out: Queue):
         """Op node for merging a number of input queues"""
+        super().__init__()
         self.queues_in = queues_in
         self.queue_out = queue_out
         self.shutdown = False
@@ -65,7 +67,7 @@ class MergeOp(Op):
         self.sentinels_reached = 0
         self.sentinels_expected = len(self.queues_in) 
 
-    def __repr__(self):
+    def __str__(self):
         return "MergeOp"
     
     def handle_op(self):
@@ -100,6 +102,7 @@ class BatchOp(Op):
 
     def __init__(self, queue_in: Queue, queue_out: Queue, batch_size: int, fill_batch: bool):
         """Op node for batching"""
+        super().__init__()
         self.queue_in = queue_in
         self.queue_out = queue_out
         self.batch_size = batch_size
@@ -111,8 +114,8 @@ class BatchOp(Op):
 
         self.shutdown = False
 
-    def __repr__(self):
-        return "BatchOp"
+    def __str__(self):
+        return f"BatchOp(batch_size={self.batch_size})"
     
     def handle_op(self):
         """
@@ -152,12 +155,13 @@ class BatchOp(Op):
 class UnbatchOp(Op):
     def __init__(self, queue_in: Queue, queue_out: Queue):
         """Op node for unbatching"""
+        super().__init__()
         self.queue_in = queue_in
         self.queue_out = queue_out
 
         self.shutdown = False
 
-    def __repr__(self):
+    def __str__(self):
         return "UnbatchOp"
 
     def handle_op(self):

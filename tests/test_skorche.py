@@ -33,14 +33,19 @@ def test_task_has_task_name():
     """Test default decorator gives a task name, or that task name can be provided."""
 
     @skorche.task
-    def my_default_task():
+    def my_func():
+        return True
+
+    @skorche.task(max_workers=5)
+    def default_task_name():
         return True
     
     @skorche.task(name="Example task")
     def my_example_task():
         return True
 
-    assert my_default_task.name == skorche.TASK_DEFAULT_NAME
+    assert my_func.name == "my_func"
+    assert default_task_name.name == skorche.TASK_DEFAULT_NAME 
     assert my_example_task.name == "Example task"
 
 def test_global_pipeline_exists():
@@ -58,7 +63,7 @@ def test_render_pipeline():
         return x + 1.0
 
     queue_out = skorche.map(add_one, queue_in, queue_out=queue_out)
-    skorche._global_pipeline.render_pipeline()
+    skorche._global_pipeline.render_pipeline(filename='test_render',root=queue_in)
 
 def test_map_and_run():
     """Creates a simple pipeline consisting of a function mapped to an input queue"""
@@ -126,7 +131,7 @@ def test_chain():
     skorche.push_to_queue(inputs, queue_in)
 
     queue_out = skorche.chain([add_one, multiply_two, square], queue_in)
-    skorche._global_pipeline.render_pipeline()
+    skorche._global_pipeline.render_pipeline(filename='chain', root=queue_in)
     skorche.run()
     skorche.shutdown()
 
@@ -198,6 +203,9 @@ def test_fill_batch_false():
 
     put_four_at_a_time will ensure with high likelihood the queue size remains
     less than four, so expect batch to just collect whatever is there.
+
+    TODO: Make this test a little less brittle. It assumes the queue will be 
+    flushed every 0.1s which is only true most of the time
     """
 
     @skorche.task
@@ -236,5 +244,58 @@ def test_batch_and_unbatch():
     results = q_out.flush()
     assert results == init_list 
 
-    
+def test_end_to_end():
+    """
+    End to end test for multistage pipeline
+    """
 
+    inputs = [1, 4, -2, -4, 5, -1, 3, 9, 12, -7, -6, 4, -3, 1, 4, 7, 1]
+
+    @skorche.task
+    def add_one(x: int):
+        return x + 1
+    
+    @skorche.task
+    def multiply_two(x: int):
+        return 2 * x
+
+    def is_positive(x: int):
+        return x > 0
+
+    @skorche.task
+    def square(x: int):
+        return x * x 
+    
+    @skorche.task
+    def add_three(x: int):
+        return x + 3
+    
+    q_in = skorche.Queue(name='inputs', fixed_inputs=inputs)
+    q = skorche.chain([add_one, multiply_two], q_in)
+
+    q_pos, q_neg = skorche.split(is_positive, q)
+
+    q_pos = skorche.map(square, q_pos)
+    q_neg = skorche.map(add_three, q_neg)
+    q_out = skorche.merge((q_pos, q_neg))
+    q_out.nameit(name='outputs')
+
+    skorche._global_pipeline.render_pipeline(filename='e2e', root=q_in)
+
+    skorche.run()
+    skorche.shutdown()
+
+    results = q_out.flush()
+
+    # Generate expected results
+    expected = []
+    for input in inputs:
+        input = add_one(input)
+        input = multiply_two(input)
+
+        if is_positive(input):
+            expected.append(square(input))
+        else:
+            expected.append(add_three(input))
+
+    assert all([result in expected for result in results])

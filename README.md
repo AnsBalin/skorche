@@ -1,6 +1,6 @@
 # _skorche_
 
-_skorche_ is (or will be!) a lightweight python library for simple task orchestration. It provides a declarative API for constructing workflows and pipelines out of existing functions and allows different parts of the pipeline to operate asynchronously and scale independently.
+_skorche_ is (or will be!) a lightweight python library for simple task orchestration and pipeline management. It provides a declarative API for constructing workflows and pipelines out of existing functions and allows different parts of the pipeline to operate asynchronously and scale independently.
 
 ```python
 input_files = ['cat1.zip', 'cat2.zip', 'dog1.zip']

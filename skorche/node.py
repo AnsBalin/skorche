@@ -7,5 +7,7 @@ class NodeType(Enum):
 
 class Node:
     def __init__(self, type: NodeType):
-        self.type = NodeType
+        self.type = type
+
+        self.children = set() 
 

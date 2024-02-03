@@ -5,7 +5,7 @@ from .resources import get_queue
 
 class Queue(Node):
     """Wrapper interface for multiprocessing.Manager().Queue()"""
-    def __init__(self, name="Queue", fixed_inputs= None):
+    def __init__(self, name="Queue", id=None, fixed_inputs= None):
         """Constructs a Queue instance
         
         Args:
@@ -17,6 +17,7 @@ class Queue(Node):
         """
         super().__init__(NodeType.QUEUE)
         self.name = name
+        self.id = id
         self.queue = get_queue()
 
         if fixed_inputs:
@@ -25,6 +26,11 @@ class Queue(Node):
                 self.put(input)
 
             self.put(QUEUE_SENTINEL)
+    
+    def __str__(self):
+        if self.id:
+            return f"{self.name} {self.id}"
+        return self.name
 
     # ---- Queue interface BEGIN
     def empty(self):
@@ -40,6 +46,17 @@ class Queue(Node):
     def task_done(self):
         self.queue.task_done()  
     # ---- Queue interface END
+
+    def nameit(self, name: str = "Queue", id: int = None):
+        """
+        Gives the queue a user specified name.
+        
+        Warning: this is a helper function to be used outside the context
+        of skorche.run(). Call it before rendering the pipeline so the 
+        output queue isn't anonymously skipped
+        """
+        self.name = name
+        self.id = id
 
     def flush(self) -> list:
         """
