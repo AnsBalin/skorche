@@ -185,3 +185,37 @@ class UnbatchOp(Op):
 
         return self.shutdown
 
+
+class FilterOp(Op):
+    def __init__(self, predicate_fn: Callable, queue_in: Queue, queue_out: Queue):
+        """Op node for unbatching"""
+        super().__init__()
+        self.queue_in = queue_in
+        self.queue_out = queue_out
+        self.predicate_fn = predicate_fn
+
+        self.shutdown = False
+
+    def __str__(self):
+        return "FilterOp"
+
+    def handle_op(self):
+        """
+        Handles task unbatching
+        """
+
+        while not self.queue_in.empty():
+            task_item = self.queue_in.get()
+            self.queue_in.task_done()
+
+            if task_item == QUEUE_SENTINEL:
+                # send sentinel value
+                self.queue_out.put(QUEUE_SENTINEL)
+                self.shutdown = True 
+                break
+
+            else:
+                if self.predicate_fn(task_item):
+                    self.queue_out.put(task_item) 
+
+        return self.shutdown

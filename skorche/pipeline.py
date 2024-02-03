@@ -1,6 +1,6 @@
 # package imports
 from .node import Node, NodeType
-from .op import SplitOp, MergeOp, BatchOp, UnbatchOp, Op
+from .op import SplitOp, MergeOp, BatchOp, UnbatchOp, FilterOp, Op
 from .queue import Queue
 from .task import Task
 
@@ -105,6 +105,19 @@ class PipelineManager:
             queue_out = Queue(id=self.new_qid())
 
         op = UnbatchOp(queue_in, queue_out)
+        self.ops.append(op)
+        self.op_table[op] = {'queues_in': [queue_in], 'queues_out': [queue_out]}
+
+        queue_in.children.add(op)
+        op.children.add(queue_out)
+
+        return queue_out
+
+    def filter(self, predicate_fn, queue_in: Queue, queue_out: Queue = None):
+        if queue_out == None:
+            queue_out = Queue(id=self.new_qid())
+
+        op = FilterOp(predicate_fn, queue_in, queue_out)
         self.ops.append(op)
         self.op_table[op] = {'queues_in': [queue_in], 'queues_out': [queue_out]}
 

@@ -37,7 +37,7 @@ Pipelines are constructed from instances of `Task`, `Queue` and `Op`. In the fol
 Decorate existing functions with `@skorche.task` to turn them into `Task` instances:
 
 ```python
-@skorche.task(num_workers=4)
+@skorche.task(max_workers=4)
 def download_file(fname):
     pass
 
@@ -154,7 +154,7 @@ Our complete program looks like this:
 ```python
 import skorche
 
-@skorche.task(num_workers=4)
+@skorche.task(max_workers=4)
 def download_file(fname):
     pass
 
@@ -175,9 +175,9 @@ def process_doc(fname):
 input_files = ['file1.zip', 'file2.zip', 'file3.zip']
 queue_in = skorche.Queue(input_files)
 
-q_unzipped = skorch.chain([download_file, unzip_file], queue_in)
+q_unzipped = skorche.chain([download_file, unzip_file], queue_in)
 
-(q_img, q_doc) = skorche.split(image_or_doc, q_in)
+(q_img, q_doc) = skorche.split(image_or_doc, q_unzipped)
 q_img_batch = skorche.batch(q_img, batch_size=10)
 q_doc_filtered = skorche.filter(filter_fn, q_doc)
 q_doc_out = skorche.map(process_doc, q_doc_filtered)

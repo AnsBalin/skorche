@@ -244,6 +244,22 @@ def test_batch_and_unbatch():
     results = q_out.flush()
     assert results == init_list 
 
+def test_filter():
+    """Test for skorche.filter()"""
+
+    def is_positive(x: int) -> bool:
+        return x > 0
+    
+    q = skorche.Queue(fixed_inputs=[-1, 1, 2, -4, 1, 9, -2, -3])
+    q = skorche.filter(is_positive, q)
+
+    skorche.run()
+    skorche.shutdown()
+
+    results = q.flush()
+    assert [1, 2, 1, 9] == results
+
+
 def test_end_to_end():
     """
     End to end test for multistage pipeline

@@ -66,6 +66,20 @@ def unbatch(queue_in: Queue, queue_out: Queue = None) -> Queue:
     queue_out = _global_pipeline.unbatch(queue_in, queue_out=queue_out)
     return queue_out
 
+def filter(predicate_fn: Callable, queue_in: Queue, queue_out: Queue = None) -> Queue:
+    """
+    Filter out task items for which predicate_fn(task_item) returns False
+    
+    Args:
+        queue_in (:obj: Queue`): The input queue.
+        queue_out (:obj:`Queue, optional): The output queue.
+    Returns:
+        queue_out (:obj:`Queue`): The output queue.
+    """
+    queue_out = _global_pipeline.filter(predicate_fn,queue_in, queue_out=queue_out)
+    return queue_out
+
+
 def run():
     """Run pipeline"""
     _global_pipeline.run()
@@ -79,6 +93,8 @@ def push_to_queue(task_list: list, queue: Queue):
         queue.put(task)
     queue.put(QUEUE_SENTINEL)
 
+def render_pipeline(**kwargs):
+    _global_pipeline.render_pipeline(**kwargs)
 
 def init():
     _global_pipeline.__init__()
