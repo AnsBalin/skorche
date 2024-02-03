@@ -221,5 +221,20 @@ def test_fill_batch_false():
     assert results[1] == [4, 5, 6, 7]
     assert results[2] == [8, 9]
 
+
+def test_batch_and_unbatch():
+    """Tests that batched tasks can be unbatched"""
+
+    init_list = list(range(20))
+    q = skorche.Queue(fixed_inputs=init_list)
+    q = skorche.batch(q, batch_size=7)
+    q_out = skorche.unbatch(q)
+
+    skorche.run()
+    skorche.shutdown()
+
+    results = q_out.flush()
+    assert results == init_list 
+
     
 

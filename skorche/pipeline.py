@@ -1,6 +1,6 @@
 # package imports
 from .node import Node, NodeType
-from .op import SplitOp, MergeOp, BatchOp, Op
+from .op import SplitOp, MergeOp, BatchOp, UnbatchOp, Op
 from .queue import Queue
 from .task import Task
 
@@ -64,6 +64,12 @@ class PipelineManager:
     def batch(self, queue_in: Queue, queue_out: Queue = Queue(), batch_size: int = 1, fill_batch: bool = False):
         
         op = BatchOp(queue_in, queue_out, batch_size, fill_batch)
+        self.ops.append(op)
+
+        return queue_out
+
+    def unbatch(self, queue_in: Queue, queue_out: Queue = Queue()):
+        op = UnbatchOp(queue_in, queue_out)
         self.ops.append(op)
 
         return queue_out

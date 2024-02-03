@@ -20,6 +20,9 @@ class SplitOp(Op):
         self.queue_out_dict = queue_out_dict    
         self.shutdown = False
 
+    def __repr__(self):
+        return "SplitOp"
+
     def handle_op(self):
         """
         Gets task item, evaluates a predicate function, and pushes item
@@ -61,6 +64,9 @@ class MergeOp(Op):
         # to output when N sentinels have been reached
         self.sentinels_reached = 0
         self.sentinels_expected = len(self.queues_in) 
+
+    def __repr__(self):
+        return "MergeOp"
     
     def handle_op(self):
         """
@@ -93,7 +99,7 @@ class MergeOp(Op):
 class BatchOp(Op):
 
     def __init__(self, queue_in: Queue, queue_out: Queue, batch_size: int, fill_batch: bool):
-        """Op node for merging a number of input queues"""
+        """Op node for batching"""
         self.queue_in = queue_in
         self.queue_out = queue_out
         self.batch_size = batch_size
@@ -105,6 +111,9 @@ class BatchOp(Op):
 
         self.shutdown = False
 
+    def __repr__(self):
+        return "BatchOp"
+    
     def handle_op(self):
         """
         Handles task batching
@@ -138,3 +147,37 @@ class BatchOp(Op):
         """Sends buffer into output queue and clear buffer"""
         self.queue_out.put(self.buffer)
         self.buffer = []
+
+
+class UnbatchOp(Op):
+    def __init__(self, queue_in: Queue, queue_out: Queue):
+        """Op node for unbatching"""
+        self.queue_in = queue_in
+        self.queue_out = queue_out
+
+        self.shutdown = False
+
+    def __repr__(self):
+        return "UnbatchOp"
+
+    def handle_op(self):
+        """
+        Handles task unbatching
+        """
+
+        while not self.queue_in.empty():
+            task_batch = self.queue_in.get()
+            self.queue_in.task_done()
+
+            if task_batch == QUEUE_SENTINEL:
+                # send sentinel value
+                self.queue_out.put(QUEUE_SENTINEL)
+                self.shutdown = True 
+                break
+
+            else:
+                for task_item in task_batch:
+                    self.queue_out.put(task_item) 
+
+        return self.shutdown
+

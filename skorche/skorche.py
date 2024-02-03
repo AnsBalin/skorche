@@ -54,6 +54,18 @@ def batch(queue_in: Queue, queue_out: Queue = Queue(), batch_size: int = 1, fill
     queue_out = _global_pipeline.batch(queue_in, queue_out=queue_out, batch_size=batch_size, fill_batch=fill_batch)
     return queue_out
 
+def unbatch(queue_in: Queue, queue_out: Queue = Queue()) -> Queue:
+    """Unbatches tasks in a queue.
+
+    Args:
+        queue_in (:obj: Queue`): The input queue.
+        queue_out (:obj:`Queue, optional): The output queue.
+    Returns:
+        queue_out (:obj:`Queue`): The output queue.
+    """
+    queue_out = _global_pipeline.unbatch(queue_in, queue_out=queue_out)
+    return queue_out
+
 def run():
     """Run pipeline"""
     _global_pipeline.run()
