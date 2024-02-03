@@ -29,6 +29,14 @@ def split(predicate_fn: Callable, queue_in: Queue, predicate_values: Tuple = (Tr
     """
     queue_out_tuple = _global_pipeline.split(predicate_fn, queue_in, predicate_values)
     return queue_out_tuple
+
+def merge(queues_in: Tuple[Queue], queue_out: Queue = Queue()) -> Queue:
+    """
+    Merges multiple queues into one.
+    The order in which input queues are popped is not specified.
+    """
+    queue_out = _global_pipeline.merge(queues_in, queue_out=queue_out)
+    return queue_out
     
 
 def run():

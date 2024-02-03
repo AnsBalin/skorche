@@ -1,6 +1,6 @@
 # package imports
 from .node import Node, NodeType
-from .op import SplitOp
+from .op import SplitOp, MergeOp
 from .queue import Queue
 from .task import Task
 
@@ -53,6 +53,13 @@ class PipelineManager:
         self.ops.append(op)
 
         return (out_queue_map[value] for value in predicate_values)
+
+    def merge(self, queues_in: Tuple[Queue], queue_out: Queue = Queue()) -> Queue:
+
+        op = MergeOp(queues_in, queue_out)
+        self.ops.append(op)
+
+        return queue_out
 
     def run(self):
 

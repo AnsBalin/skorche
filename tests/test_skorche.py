@@ -167,11 +167,10 @@ def test_split():
 
     skorche.run()
 
-    pos_sentinel_reached = False
-    neg_sentinel_reached = False
     pos_out = []
     neg_out = []
 
+    # TODO: create a q.flush() method to flush a queue into a list
     while True:
         result = q_pos.get()
         q_pos.task_done()
@@ -192,5 +191,27 @@ def test_split():
     assert pos_out == [1, 4, 7]
     assert neg_out == [-2, -1]
 
+def test_merge():
+    """Merge two queues into one"""
+
+    q1 = skorche.Queue(fixed_inputs=[1,3,5,7])
+    q2 = skorche.Queue(fixed_inputs=[0,2,4,6])
+    
+    q_out = skorche.merge((q1, q2))
+
+    skorche.run()
+
+    results = []
+
+    while True:
+        result = q_out.get()
+        q_out.task_done()
+
+        if result == skorche.QUEUE_SENTINEL:
+            break
+        else:
+            results.append(result)            
+
+    assert all([i in results for i in range(8)])
 
     
