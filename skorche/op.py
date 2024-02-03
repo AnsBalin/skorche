@@ -90,3 +90,51 @@ class MergeOp(Op):
 
                 
                     
+class BatchOp(Op):
+
+    def __init__(self, queue_in: Queue, queue_out: Queue, batch_size: int, fill_batch: bool):
+        """Op node for merging a number of input queues"""
+        self.queue_in = queue_in
+        self.queue_out = queue_out
+        self.batch_size = batch_size
+        self.fill_batch = fill_batch 
+
+
+        # Buffer for collecting tasks
+        self.buffer = []
+
+        self.shutdown = False
+
+    def handle_op(self):
+        """
+        Handles task batching
+        """
+        while not self.queue_in.empty():
+            task_item = self.queue_in.get()
+            self.queue_in.task_done()
+
+            if task_item == QUEUE_SENTINEL:
+                # send whatever is currently in buffer as a batch
+                self.send_batch()
+
+                # send sentinel value
+                self.queue_out.put(QUEUE_SENTINEL)
+                self.shutdown = True 
+                break
+
+            else:
+                # Add task to buffer and send if batch_size reached
+                self.buffer.append(task_item)
+                if len(self.buffer) == self.batch_size:
+                    self.send_batch()
+
+        # send whatever else is left in the buffer
+        if not self.fill_batch and len(self.buffer):
+            self.send_batch()
+
+        return self.shutdown
+
+    def send_batch(self):
+        """Sends buffer into output queue and clear buffer"""
+        self.queue_out.put(self.buffer)
+        self.buffer = []

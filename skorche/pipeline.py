@@ -1,6 +1,6 @@
 # package imports
 from .node import Node, NodeType
-from .op import SplitOp, MergeOp
+from .op import SplitOp, MergeOp, BatchOp, Op
 from .queue import Queue
 from .task import Task
 
@@ -61,6 +61,13 @@ class PipelineManager:
 
         return queue_out
 
+    def batch(self, queue_in: Queue, queue_out: Queue = Queue(), batch_size: int = 1, fill_batch: bool = False):
+        
+        op = BatchOp(queue_in, queue_out, batch_size, fill_batch)
+        self.ops.append(op)
+
+        return queue_out
+
     def run(self):
 
         for (task_id, queue_dict) in self.task_table.items():
@@ -78,15 +85,18 @@ class PipelineManager:
             for worker_id in range(task.max_workers):
                 process_pool.submit(task.handle_task, worker_id, queue_in, queue_out)
 
-        #TODO: Op nodes should be handled elsewhere, not here in the main thread.
-        while len(self.ops):
-            for op in self.ops:
+        # TODO: Make this non-blocking in the main thread
+        self.op_worker(self.ops)
+
+    def op_worker(self, ops: List[Op]):
+        """Run op loop on the pool so it doesn't block the main thread"""
+        while len(ops):
+            for op in ops:
                 # Op node returns a shutdown signal when it handles the queue sentinel.
                 shutdown = op.handle_op() 
 
                 if shutdown:
-                    self.ops.remove(op)
-
+                    ops.remove(op)
         
     def shutdown(self):
         for pool in self.pool_table.values():

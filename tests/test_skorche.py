@@ -72,11 +72,13 @@ def test_map_and_run():
     queue_in = skorche.Queue("inputs")
     queue_out = skorche.map(add_two, queue_in)
 
+    skorche.run()
+    
+
     for i in inputs:
         queue_in.put(i)
     queue_in.put(skorche.QUEUE_SENTINEL)
 
-    skorche.run()
 
     skorche.shutdown()
     results = queue_out.flush()
@@ -168,3 +170,56 @@ def test_merge():
     assert all([i in results for i in range(8)])
 
     
+def test_batch():
+    """Test for skorche.batch()"""
+
+    # Each item in q will be an int
+    q = skorche.Queue(fixed_inputs=list(range(15)))
+    expected = [
+        list(range(0,4)),
+        list(range(4,8)),
+        list(range(8,12)),
+        list(range(12,15)), # last one will be length 3
+    ]
+
+    # Each item in q_out will be list of ints with max size 4
+    q_out = skorche.batch(q, batch_size=4)
+
+    skorche.run()
+    skorche.shutdown()
+
+    batched = q_out.flush()
+
+    assert batched == expected
+
+def test_fill_batch_false():
+    """
+    Tests that with fill_batch=False, skorche.batch() will not wait for full buffer
+
+    put_four_at_a_time will ensure with high likelihood the queue size remains
+    less than four, so expect batch to just collect whatever is there.
+    """
+
+    @skorche.task
+    def put_four_at_a_time(i: int):
+        """force task to sleep every 4 items"""
+        if (i) % 4 == 0:
+            time.sleep(0.1)
+
+        return i
+
+    q = skorche.Queue(fixed_inputs=list(range(10)))
+    q = skorche.map(put_four_at_a_time, q)
+    q_out = skorche.batch(q, batch_size=10, fill_batch=False)
+
+    skorche.run()
+    skorche.shutdown()
+
+    results = q_out.flush()
+
+    assert results[0] == [0, 1, 2, 3]
+    assert results[1] == [4, 5, 6, 7]
+    assert results[2] == [8, 9]
+
+    
+

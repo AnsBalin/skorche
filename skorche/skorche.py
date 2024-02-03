@@ -38,6 +38,21 @@ def merge(queues_in: Tuple[Queue], queue_out: Queue = Queue()) -> Queue:
     queue_out = _global_pipeline.merge(queues_in, queue_out=queue_out)
     return queue_out
     
+def batch(queue_in: Queue, queue_out: Queue = Queue(), batch_size: int = 1, fill_batch: bool = True) -> Queue:
+    """
+    Batches items from an input queue together and pushes a list to the output queue.
+
+    Args:
+        queue_in (:obj: Queue`): The input queue.
+        queue_out (:obj:`Queue, optional): The output queue.
+        batch_size (int, optional): Maximum number of task items to batch together. Default=1.
+        fill_batch (bool, optional): if False, send a batch smaller than batch_size if queue is empty. Default = True.
+    Returns:
+        queue_out (:obj:`Queue`): The output queue.
+    """
+
+    queue_out = _global_pipeline.batch(queue_in, queue_out=queue_out, batch_size=batch_size, fill_batch=fill_batch)
+    return queue_out
 
 def run():
     """Run pipeline"""
