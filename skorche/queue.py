@@ -26,18 +26,43 @@ class Queue(Node):
 
             self.put(QUEUE_SENTINEL)
 
+    # ---- Queue interface BEGIN
     def empty(self):
         return self.queue.empty()
 
     def put(self, item):
         self.queue.put(item)
 
-    def get(self):
+    def get(self):  
+        # TODO: handle self.queue.task_done() here so we dont have to everywhere else
         return self.queue.get()
 
     def task_done(self):
         self.queue.task_done()  
+    # ---- Queue interface END
 
+    def flush(self) -> list:
+        """
+        Flushes queue into a list excluding any sentinels.
+        
+        Warning: This is a helper function intended to be used outside 
+        the context of skorche.run() and it is expected that the queue
+        is non-empty and sentinel-terminated. Otherwise it will block.
+        """
+        buffer = []
+        while not self.queue.empty():
+            task_item = self.queue.get()
+            self.queue.task_done()
+            
+            if task_item == QUEUE_SENTINEL:
+                break
+            
+            else:
+                buffer.append(task_item)
+
+        return buffer
+
+    
 
 
 

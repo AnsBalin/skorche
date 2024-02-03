@@ -78,17 +78,9 @@ def test_map_and_run():
 
     skorche.run()
 
-    results = []
-    while True:
-        result = queue_out.get()
-        queue_out.task_done()
-
-        if result == skorche.QUEUE_SENTINEL:
-            break
-        else:
-            results.append(result)
-
     skorche.shutdown()
+    results = queue_out.flush()
+
     assert results == expected
 
 def test_init_fixed_queue():
@@ -101,18 +93,12 @@ def test_push_to_queue():
     """Unit test for skorche.push_to_queue()"""
 
     inputs = [1, 5, 6, 7]
-    expected = inputs + [skorche.QUEUE_SENTINEL]
+    expected = inputs
 
     queue = skorche.Queue()
     skorche.push_to_queue(inputs, queue)
 
-    results = []
-    while True:
-        result = queue.get()    
-        queue.task_done()
-        results.append(result)
-        if result == skorche.QUEUE_SENTINEL:
-            break 
+    results = queue.flush()
 
     assert results == expected
 
@@ -140,18 +126,10 @@ def test_chain():
     queue_out = skorche.chain([add_one, multiply_two, square], queue_in)
     skorche._global_pipeline.render_pipeline()
     skorche.run()
-
-    results = []
-    while True:
-        result = queue_out.get()
-        queue_out.task_done()
-
-        if result == skorche.QUEUE_SENTINEL:
-            break
-        else:
-            results.append(result)
-
     skorche.shutdown()
+
+    results = queue_out.flush()
+
     assert results == expected
 
 def test_split():
@@ -167,26 +145,8 @@ def test_split():
 
     skorche.run()
 
-    pos_out = []
-    neg_out = []
-
-    # TODO: create a q.flush() method to flush a queue into a list
-    while True:
-        result = q_pos.get()
-        q_pos.task_done()
-
-        if result == skorche.QUEUE_SENTINEL:
-            break
-        else: 
-            pos_out.append(result)
-    while True:
-        result = q_neg.get()
-        q_neg.task_done()
-
-        if result == skorche.QUEUE_SENTINEL:
-            break
-        else: 
-            neg_out.append(result)
+    pos_out = q_pos.flush()
+    neg_out = q_neg.flush()
 
     assert pos_out == [1, 4, 7]
     assert neg_out == [-2, -1]
@@ -203,14 +163,7 @@ def test_merge():
 
     results = []
 
-    while True:
-        result = q_out.get()
-        q_out.task_done()
-
-        if result == skorche.QUEUE_SENTINEL:
-            break
-        else:
-            results.append(result)            
+    results = q_out.flush()
 
     assert all([i in results for i in range(8)])
 
