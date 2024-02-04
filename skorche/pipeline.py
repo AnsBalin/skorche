@@ -246,7 +246,7 @@ class PipelineManager:
         visited = set()
         q = deque()
         q.append(root)
-        dot.node(name=str(root))
+        dot.node(name=str(root),shape="plaintext")
         visited.add(root)
 
         while len(q):
@@ -268,14 +268,14 @@ class PipelineManager:
 
                 if child.type == NodeType.OP:
                     attr = {
-                        "shape": "rectangle",
+                        "shape": "box",
                         "style": "filled",
                         "color": "lightgrey",
                     }
                 elif child.type == NodeType.TASK:
                     attr = {"shape": "rectangle"}
                 else:
-                    attr = {}
+                    attr = {"shape": "plaintext"}
 
                 dot.node(str(child), **attr)
                 dot.edge(str(node), str(child), label=edge_label)
