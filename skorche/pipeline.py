@@ -198,7 +198,7 @@ class PipelineManager:
         dot = Digraph(
             "Pipeline",
             format="svg",
-            graph_attr={"rankdir": "LR", "size": "10,5"},
+            graph_attr={"rankdir": "LR"},
         )
 
         visited = set()
