@@ -139,6 +139,8 @@ All we have done so far is declare our pipeline. None of the tasks have executed
 skorche.render_pipeline()
 ```
 
+![demo_pipeline](./graphviz/demo.svg)
+
 ### `run`
 
 Now time to run it:
