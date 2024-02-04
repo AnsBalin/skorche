@@ -25,11 +25,15 @@ class PipelineManager:
         self.op_table = {}
         self.pool_table = {}
 
+        # To keep track of all queues
+        self.queues = set()
+
         # this should only ever be touched with new_qid()
         self._queue_counter = 0
 
-    def setup(self):
-        self.mp_manager = Manager()
+        # This will be initialized in run()
+        self.mp_manager = None 
+
 
     def new_qid(self) -> int:
         """return new queue id"""
@@ -38,9 +42,12 @@ class PipelineManager:
 
     def map(self, task: Task, queue_in: Queue, queue_out: Queue = None) -> Queue:
         if queue_out == None:
-            queue_out = Queue(id=self.new_qid(), mp_manager=self.mp_manager)
+            queue_out = Queue(id=self.new_qid())
 
         self.task_table[task] = {"queue_in": queue_in, "queue_out": queue_out}
+
+        self.queues.add(queue_in)
+        self.queues.add(queue_out)
 
         queue_in.children.add(task)
         task.children.add(queue_out)
@@ -52,20 +59,22 @@ class PipelineManager:
     ) -> Queue:
         # TODO: fix bug here where queue_out is never used
 
+
         if len(task_list) == 1:
-            self.map(task_list[0], queue_in, queue_out)
+            self.map(task_list[0], queue_in, queue_out=queue_out)
             return
 
         # Construct intermediate queue to join between chained tasks
-        queue_int = Queue(id=self.new_qid(), mp_manager=self.mp_manager)
-        queue_int = self.map(task_list[0], queue_in, queue_int)
+        queue_int = Queue(id=self.new_qid())
+        queue_int = self.map(task_list[0], queue_in, queue_out=queue_int)
 
         for task in task_list[1:]:
             queue_int = self.map(
                 task,
                 queue_int,
-                Queue(id=self.new_qid(), mp_manager=self.mp_manager),
+                queue_out=Queue(id=self.new_qid()),
             )
+
 
         return queue_int
 
@@ -76,7 +85,7 @@ class PipelineManager:
         predicate_values: Tuple = (True, False),
     ) -> Tuple[Queue]:
         out_queue_map = {
-            value: Queue(name=str(value), id=self.new_qid(), mp_manager=self.mp_manager)
+            value: Queue(name=str(value), id=self.new_qid())
             for value in predicate_values
         }
         op = SplitOp(predicate_fn, queue_in, out_queue_map)
@@ -85,16 +94,18 @@ class PipelineManager:
             "queues_in": [queue_in],
             "queues_out": list(out_queue_map.values()),
         }
+        self.queues.add(queue_in)
 
         queue_in.children.add(op)
         for out_queue in out_queue_map.values():
             op.children.add(out_queue)
+            self.queues.add(out_queue)
 
         return (out_queue_map[value] for value in predicate_values)
 
     def merge(self, queues_in: Tuple[Queue], queue_out: Queue = None) -> Queue:
         if queue_out == None:
-            queue_out = Queue(id=self.new_qid(), mp_manager=self.mp_manager)
+            queue_out = Queue(id=self.new_qid())
 
         op = MergeOp(queues_in, queue_out)
         self.ops.append(op)
@@ -102,7 +113,10 @@ class PipelineManager:
 
         for in_queue in queues_in:
             in_queue.children.add(op)
+            self.queues.add(in_queue)
+
         op.children.add(queue_out)
+        self.queues.add(queue_out)
 
         return queue_out
 
@@ -114,7 +128,7 @@ class PipelineManager:
         fill_batch: bool = False,
     ):
         if queue_out == None:
-            queue_out = Queue(id=self.new_qid(), mp_manager=self.mp_manager)
+            queue_out = Queue(id=self.new_qid())
 
         op = BatchOp(queue_in, queue_out, batch_size, fill_batch)
         self.ops.append(op)
@@ -123,11 +137,14 @@ class PipelineManager:
         queue_in.children.add(op)
         op.children.add(queue_out)
 
+        self.queues.add(queue_in)
+        self.queues.add(queue_out)
+
         return queue_out
 
     def unbatch(self, queue_in: Queue, queue_out: Queue = None):
         if queue_out == None:
-            queue_out = Queue(id=self.new_qid(), mp_manager=self.mp_manager)
+            queue_out = Queue(id=self.new_qid())
 
         op = UnbatchOp(queue_in, queue_out)
         self.ops.append(op)
@@ -136,11 +153,14 @@ class PipelineManager:
         queue_in.children.add(op)
         op.children.add(queue_out)
 
+        self.queues.add(queue_in)
+        self.queues.add(queue_out)
+
         return queue_out
 
     def filter(self, predicate_fn, queue_in: Queue, queue_out: Queue = None):
         if queue_out == None:
-            queue_out = Queue(id=self.new_qid(), mp_manager=self.mp_manager)
+            queue_out = Queue(id=self.new_qid())
 
         op = FilterOp(predicate_fn, queue_in, queue_out)
         self.ops.append(op)
@@ -149,14 +169,34 @@ class PipelineManager:
         queue_in.children.add(op)
         op.children.add(queue_out)
 
+        self.queues.add(queue_in)
+        self.queues.add(queue_out)
+
         return queue_out
 
-    def run(self):
+    def run(self) -> None:
+        """
+        Runs pipeline until all tasks are completed.
+        
+        This function currently blocks by calling self.op_worker()
+        and fixing this is a TODO for the future
+        """
+        
+        mp_manager = Manager()
+
+        # Give every skorche Queue a multiprocessing Queue
+        # and flush the buffer into it
+        for q in self.queues:
+            q.set_queue(mp_manager)
+            q.buffer_to_mp_queue()
+
+        # Submit all tasks to pool
         for task, queue_dict in self.task_table.items():
             queue_in = queue_dict["queue_in"]
             queue_out = queue_dict["queue_out"]
 
-            # TODO: Rather than one pool per task, have one centrally managed pool
+            # TODO: have one centrally managed pool rather than one pool per task
+            # This is just temporary
             process_pool = concurrent.futures.ThreadPoolExecutor(
                 max_workers=task.max_workers
             )
@@ -166,8 +206,10 @@ class PipelineManager:
             for worker_id in range(task.max_workers):
                 process_pool.submit(task.handle_task, worker_id, queue_in, queue_out)
 
+        # Run Op nodes
         # TODO: Make this non-blocking in the main thread
         self.op_worker(self.ops)
+
 
     def op_worker(self, ops: List[Op]):
         """Run op loop on the pool so it doesn't block the main thread"""

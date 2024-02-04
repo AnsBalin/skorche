@@ -32,18 +32,11 @@ def filter_fn(fname):
 
 
 if __name__ == "__main__":
-    # Initialises multiprocessing manager
-    skorche.init()
     input_files = ["file1.zip", "file2.zip", "file3.zip"]
 
-    # TODO: Make it so we dont need to do this
-    mp_manager = multiprocessing.Manager()
-
     # input and output queues
-    queue_in = skorche.Queue(
-        name="inputs", fixed_inputs=input_files, mp_manager=mp_manager
-    )
-    queue_out = skorche.Queue(name="outputs", mp_manager=mp_manager)
+    queue_in = skorche.Queue(name="inputs", fixed_inputs=input_files)
+    queue_out = skorche.Queue(name="outputs")
 
     # chain together two tasks sequentially
     q_unzipped = skorche.chain([download_file, unzip_file], queue_in)
@@ -66,5 +59,9 @@ if __name__ == "__main__":
     # Visualise pipeline. Writes to ./graphviz/demo.svg
     skorche.render_pipeline(filename="demo", root=queue_in)
 
-    # Run pipeline
-    # skorche.run()
+    # Run pipeline 
+    skorche.run()
+    skorche.shutdown()
+
+    # pop all outputs from queue into list
+    results = queue_out.flush()

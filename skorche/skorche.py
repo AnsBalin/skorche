@@ -118,4 +118,3 @@ def render_pipeline(**kwargs):
 
 def init():
     _global_pipeline.__init__()
-    _global_pipeline.setup()
