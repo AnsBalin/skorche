@@ -23,7 +23,7 @@ class SplitOp(Op):
         self.shutdown = False
 
     def __str__(self):
-        return f"SplitOp({self.predicate_fn.__name__})"
+        return f"Split({self.predicate_fn.__name__})"
 
     def handle_op(self):
         """
@@ -69,7 +69,7 @@ class MergeOp(Op):
         self.sentinels_expected = len(self.queues_in)
 
     def __str__(self):
-        return "MergeOp"
+        return "Merge"
 
     def handle_op(self):
         """
@@ -115,7 +115,7 @@ class BatchOp(Op):
         self.shutdown = False
 
     def __str__(self):
-        return f"BatchOp(batch_size={self.batch_size})"
+        return f"Batch(batch_size={self.batch_size})"
 
     def handle_op(self):
         """
@@ -162,7 +162,7 @@ class UnbatchOp(Op):
         self.shutdown = False
 
     def __str__(self):
-        return "UnbatchOp"
+        return "Unbatch"
 
     def handle_op(self):
         """
@@ -197,7 +197,7 @@ class FilterOp(Op):
         self.shutdown = False
 
     def __str__(self):
-        return "FilterOp"
+        return f"Filter({self.predicate_fn.__name__})"
 
     def handle_op(self):
         """

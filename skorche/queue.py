@@ -1,12 +1,13 @@
 from .constants import QUEUE_SENTINEL
 from .node import NodeType, Node
-from .resources import get_queue
+
+# from .resources import get_queue
 
 
 class Queue(Node):
     """Wrapper interface for multiprocessing.Manager().Queue()"""
 
-    def __init__(self, name="Queue", id=None, fixed_inputs=None):
+    def __init__(self, name="Queue", id=None, fixed_inputs=None, mp_manager=None):
         """Constructs a Queue instance
 
         Args:
@@ -19,7 +20,8 @@ class Queue(Node):
         super().__init__(NodeType.QUEUE)
         self.name = name
         self.id = id
-        self.queue = get_queue()
+        self.queue = mp_manager.Queue()
+        # self.queue = get_queue()
 
         if fixed_inputs:
             for input in fixed_inputs:

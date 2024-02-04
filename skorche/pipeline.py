@@ -8,6 +8,7 @@ from .task import Task
 # standard library imports
 from collections import deque
 import concurrent.futures
+from multiprocessing import Manager
 from typing import Callable, List, Tuple
 
 
@@ -27,6 +28,9 @@ class PipelineManager:
         # this should only ever be touched with new_qid()
         self._queue_counter = 0
 
+    def setup(self):
+        self.mp_manager = Manager()
+
     def new_qid(self) -> int:
         """return new queue id"""
         self._queue_counter += 1
@@ -34,7 +38,7 @@ class PipelineManager:
 
     def map(self, task: Task, queue_in: Queue, queue_out: Queue = None) -> Queue:
         if queue_out == None:
-            queue_out = Queue(id=self.new_qid())
+            queue_out = Queue(id=self.new_qid(), mp_manager=self.mp_manager)
 
         self.task_table[task] = {"queue_in": queue_in, "queue_out": queue_out}
 
@@ -53,11 +57,15 @@ class PipelineManager:
             return
 
         # Construct intermediate queue to join between chained tasks
-        queue_int = Queue(id=self.new_qid())
+        queue_int = Queue(id=self.new_qid(), mp_manager=self.mp_manager)
         queue_int = self.map(task_list[0], queue_in, queue_int)
 
         for task in task_list[1:]:
-            queue_int = self.map(task, queue_int, Queue(id=self.new_qid()))
+            queue_int = self.map(
+                task,
+                queue_int,
+                Queue(id=self.new_qid(), mp_manager=self.mp_manager),
+            )
 
         return queue_int
 
@@ -68,7 +76,7 @@ class PipelineManager:
         predicate_values: Tuple = (True, False),
     ) -> Tuple[Queue]:
         out_queue_map = {
-            value: Queue(name=str(value), id=self.new_qid())
+            value: Queue(name=str(value), id=self.new_qid(), mp_manager=self.mp_manager)
             for value in predicate_values
         }
         op = SplitOp(predicate_fn, queue_in, out_queue_map)
@@ -86,7 +94,7 @@ class PipelineManager:
 
     def merge(self, queues_in: Tuple[Queue], queue_out: Queue = None) -> Queue:
         if queue_out == None:
-            queue_out = Queue(id=self.new_qid())
+            queue_out = Queue(id=self.new_qid(), mp_manager=self.mp_manager)
 
         op = MergeOp(queues_in, queue_out)
         self.ops.append(op)
@@ -106,7 +114,7 @@ class PipelineManager:
         fill_batch: bool = False,
     ):
         if queue_out == None:
-            queue_out = Queue(id=self.new_qid())
+            queue_out = Queue(id=self.new_qid(), mp_manager=self.mp_manager)
 
         op = BatchOp(queue_in, queue_out, batch_size, fill_batch)
         self.ops.append(op)
@@ -119,7 +127,7 @@ class PipelineManager:
 
     def unbatch(self, queue_in: Queue, queue_out: Queue = None):
         if queue_out == None:
-            queue_out = Queue(id=self.new_qid())
+            queue_out = Queue(id=self.new_qid(), mp_manager=self.mp_manager)
 
         op = UnbatchOp(queue_in, queue_out)
         self.ops.append(op)
@@ -132,7 +140,7 @@ class PipelineManager:
 
     def filter(self, predicate_fn, queue_in: Queue, queue_out: Queue = None):
         if queue_out == None:
-            queue_out = Queue(id=self.new_qid())
+            queue_out = Queue(id=self.new_qid(), mp_manager=self.mp_manager)
 
         op = FilterOp(predicate_fn, queue_in, queue_out)
         self.ops.append(op)
@@ -187,7 +195,11 @@ class PipelineManager:
         self, filename="pipeline", root=None, skip_anon_ques=True
     ) -> None:
         """Render pipeline to png"""
-        dot = Digraph("Pipeline", format="svg", graph_attr={"rankdir": "LR"})
+        dot = Digraph(
+            "Pipeline",
+            format="svg",
+            graph_attr={"rankdir": "LR", "size": "10,5"},
+        )
 
         visited = set()
         q = deque()
@@ -200,11 +212,16 @@ class PipelineManager:
             for child in node.children:
                 # To skip anonymous queues if the current node's child is a queue, we
                 # want to draw an edge to the child of the queue, if any exist
+
+                edge_label = ""
                 if (
                     skip_anon_ques
                     and child.type == NodeType.QUEUE
                     and len(child.children)
                 ):
+                    if not str(child).startswith("Queue"):
+                        edge_label = str(child.name)
+
                     child = list(child.children)[0]
 
                 if child.type == NodeType.OP:
@@ -219,7 +236,7 @@ class PipelineManager:
                     attr = {}
 
                 dot.node(str(child), **attr)
-                dot.edge(str(node), str(child))
+                dot.edge(str(node), str(child), label=edge_label)
                 if child not in visited:
                     visited.add(child)
                     q.append(child)

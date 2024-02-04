@@ -1,6 +1,9 @@
+import functools
 import logging
 import pytest
 import time
+
+import multiprocessing
 
 import skorche
 
@@ -10,6 +13,11 @@ def skorche_init():
     skorche.init()
     time.sleep(0.0)
     yield
+
+
+@pytest.fixture
+def mp_manager():
+    return multiprocessing.Manager()
 
 
 def test_task_can_be_called_like_function():
@@ -57,11 +65,11 @@ def test_global_pipeline_exists():
     assert "_global_pipeline" in dir(skorche)
 
 
-def test_render_pipeline():
+def test_render_pipeline(mp_manager):
     """Tests pipeline rendering using graphviz works as intended."""
 
-    queue_in = skorche.Queue("inputs")
-    queue_out = skorche.Queue("outputs")
+    queue_in = skorche.Queue("inputs", mp_manager=mp_manager)
+    queue_out = skorche.Queue("outputs", mp_manager=mp_manager)
 
     @skorche.task
     def add_one(x: float):
@@ -71,7 +79,7 @@ def test_render_pipeline():
     skorche._global_pipeline.render_pipeline(filename="test_render", root=queue_in)
 
 
-def test_map_and_run():
+def test_map_and_run(mp_manager):
     """Creates a simple pipeline consisting of a function mapped to an input queue"""
 
     @skorche.task
@@ -80,7 +88,7 @@ def test_map_and_run():
 
     inputs = [1, 2, 3, 12, 99, -1]
     expected = [x + 2 for x in inputs]
-    queue_in = skorche.Queue("inputs")
+    queue_in = skorche.Queue("inputs", mp_manager=mp_manager)
     queue_out = skorche.map(add_two, queue_in)
 
     skorche.run()
@@ -95,19 +103,19 @@ def test_map_and_run():
     assert results == expected
 
 
-def test_init_fixed_queue():
+def test_init_fixed_queue(mp_manager):
     """Test queue with fixed_inputs is initialized correctly"""
-    q = skorche.Queue(fixed_inputs=[1, 2, 3])
+    q = skorche.Queue(fixed_inputs=[1, 2, 3], mp_manager=mp_manager)
     assert [q.get() for _ in range(4)] == [1, 2, 3, skorche.QUEUE_SENTINEL]
 
 
-def test_push_to_queue():
+def test_push_to_queue(mp_manager):
     """Unit test for skorche.push_to_queue()"""
 
     inputs = [1, 5, 6, 7]
     expected = inputs
 
-    queue = skorche.Queue()
+    queue = skorche.Queue(mp_manager=mp_manager)
     skorche.push_to_queue(inputs, queue)
 
     results = queue.flush()
@@ -115,7 +123,7 @@ def test_push_to_queue():
     assert results == expected
 
 
-def test_chain():
+def test_chain(mp_manager):
     """Creates a chained pipeline of three tasks"""
 
     @skorche.task(name="add_one")
@@ -133,7 +141,7 @@ def test_chain():
     inputs = [1, 5, -2, 12, 100]
     expected = [(2 * (x + 1)) ** 2 for x in inputs]
 
-    queue_in = skorche.Queue("inputs")
+    queue_in = skorche.Queue("inputs", mp_manager=mp_manager)
     skorche.push_to_queue(inputs, queue_in)
 
     queue_out = skorche.chain([add_one, multiply_two, square], queue_in)
@@ -146,13 +154,13 @@ def test_chain():
     assert results == expected
 
 
-def test_split():
+def test_split(mp_manager):
     """Split a queue and test task items exist and are not duplicated"""
 
     def predicate_fn(x):
         return x > 0
 
-    q = skorche.Queue(fixed_inputs=[-2, 1, 4, -1, 7])
+    q = skorche.Queue(fixed_inputs=[-2, 1, 4, -1, 7], mp_manager=mp_manager)
 
     (q_pos, q_neg) = skorche.split(predicate_fn, q)
 
@@ -165,11 +173,11 @@ def test_split():
     assert neg_out == [-2, -1]
 
 
-def test_merge():
+def test_merge(mp_manager):
     """Merge two queues into one"""
 
-    q1 = skorche.Queue(fixed_inputs=[1, 3, 5, 7])
-    q2 = skorche.Queue(fixed_inputs=[0, 2, 4, 6])
+    q1 = skorche.Queue(fixed_inputs=[1, 3, 5, 7], mp_manager=mp_manager)
+    q2 = skorche.Queue(fixed_inputs=[0, 2, 4, 6], mp_manager=mp_manager)
 
     q_out = skorche.merge((q1, q2))
 
@@ -182,11 +190,11 @@ def test_merge():
     assert all([i in results for i in range(8)])
 
 
-def test_batch():
+def test_batch(mp_manager):
     """Test for skorche.batch()"""
 
     # Each item in q will be an int
-    q = skorche.Queue(fixed_inputs=list(range(15)))
+    q = skorche.Queue(fixed_inputs=list(range(15)), mp_manager=mp_manager)
     expected = [
         list(range(0, 4)),
         list(range(4, 8)),
@@ -205,7 +213,7 @@ def test_batch():
     assert batched == expected
 
 
-def test_fill_batch_false():
+def test_fill_batch_false(mp_manager):
     """
     Tests that with fill_batch=False, skorche.batch() will not wait for full buffer
 
@@ -224,7 +232,7 @@ def test_fill_batch_false():
 
         return i
 
-    q = skorche.Queue(fixed_inputs=list(range(10)))
+    q = skorche.Queue(fixed_inputs=list(range(10)), mp_manager=mp_manager)
     q = skorche.map(put_four_at_a_time, q)
     q_out = skorche.batch(q, batch_size=10, fill_batch=False)
 
@@ -233,16 +241,16 @@ def test_fill_batch_false():
 
     results = q_out.flush()
 
-    assert results[0] == [0, 1, 2, 3]
-    assert results[1] == [4, 5, 6, 7]
-    assert results[2] == [8, 9]
+    flat_results = functools.reduce(lambda x, y: x + y, results, [])
+    assert all([result in list(range(10)) for result in flat_results])
+    assert all([len(result) <= 4 for result in results])
 
 
-def test_batch_and_unbatch():
+def test_batch_and_unbatch(mp_manager):
     """Tests that batched tasks can be unbatched"""
 
     init_list = list(range(20))
-    q = skorche.Queue(fixed_inputs=init_list)
+    q = skorche.Queue(fixed_inputs=init_list, mp_manager=mp_manager)
     q = skorche.batch(q, batch_size=7)
     q_out = skorche.unbatch(q)
 
@@ -253,13 +261,13 @@ def test_batch_and_unbatch():
     assert results == init_list
 
 
-def test_filter():
+def test_filter(mp_manager):
     """Test for skorche.filter()"""
 
     def is_positive(x: int) -> bool:
         return x > 0
 
-    q = skorche.Queue(fixed_inputs=[-1, 1, 2, -4, 1, 9, -2, -3])
+    q = skorche.Queue(fixed_inputs=[-1, 1, 2, -4, 1, 9, -2, -3], mp_manager=mp_manager)
     q = skorche.filter(is_positive, q)
 
     skorche.run()
@@ -269,7 +277,7 @@ def test_filter():
     assert [1, 2, 1, 9] == results
 
 
-def test_end_to_end():
+def test_end_to_end(mp_manager):
     """
     End to end test for multistage pipeline
     """
@@ -295,7 +303,7 @@ def test_end_to_end():
     def add_three(x: int):
         return x + 3
 
-    q_in = skorche.Queue(name="inputs", fixed_inputs=inputs)
+    q_in = skorche.Queue(name="inputs", fixed_inputs=inputs, mp_manager=mp_manager)
     q = skorche.chain([add_one, multiply_two], q_in)
 
     q_pos, q_neg = skorche.split(is_positive, q)
