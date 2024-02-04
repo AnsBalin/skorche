@@ -10,7 +10,7 @@ _skorche_ is (or will be!) a lightweight python library for simple task orchestr
 - **Pipeline Semantics**: `map` tasks to queues, `chain` together multiple tasks, and `split` and `merge` pipelines to compose complex computational graphs.
 - **Asynchronous Execution**: _skorche_ manages thread pools allowing tasks to operate asynchronously. Support for process pools is planned.
 - **Pipeline rendering**: Use _skorche_'s built-in graph renderer to visualise pipelines.
-- **Graph Analyzer**: (Planned) Profile pipeliens in realtime to identify hotspots or let _skorche_ manage load balancing entirely.
+- **Graph Analyzer**: (Planned) Profile pipelines in realtime to identify hotspots or let _skorche_ manage load balancing entirely.
 
 # Example
 
