@@ -240,14 +240,21 @@ class PipelineManager:
         dot = Digraph(
             "Pipeline",
             format="svg",
-            graph_attr={"rankdir": "LR"},
+            graph_attr={"rankdir": "LR", "fontsize": "30pt"},
         )
 
+        if not isinstance(root, tuple):
+            roots = (root,)
+        else:
+            roots = root
+        
         visited = set()
         q = deque()
-        q.append(root)
-        dot.node(name=str(root),shape="plaintext")
-        visited.add(root)
+
+        for root in roots:
+            q.append(root)
+            dot.node(name=str(root),shape="plaintext")
+            visited.add(root)
 
         while len(q):
             node = q.popleft()

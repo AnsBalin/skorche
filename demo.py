@@ -1,35 +1,28 @@
 import skorche
-import multiprocessing
-
 
 @skorche.task
 def download_file(fname):
     pass
 
-
 @skorche.task
 def unzip_file(fname):
     pass
-
 
 @skorche.task
 def process_images(fname_list):
     # Processes multiple images in one batch
     pass
 
-
 @skorche.task
 def process_doc(fname):
     pass
 
-
+# Op predicates are not skorche tasks
 def is_image(fname):
     pass
 
-
 def filter_fn(fname):
     pass
-
 
 if __name__ == "__main__":
     input_files = ["file1.zip", "file2.zip", "file3.zip"]
@@ -65,3 +58,14 @@ if __name__ == "__main__":
 
     # pop all outputs from queue into list
     results = queue_out.flush()
+
+if __name__ == "__main2__":
+    def classify(img):
+        pass
+    input_files = ["file1.zip", "file2.zip", "file3.zip"]
+    q = skorche.Queue(name="unzipped", fixed_inputs=input_files)
+    (q_img, q_doc, q_audio) = skorche.split(classify, q, predicate_values=('img', 'doc', 'audio'))
+    q_img.nameit(name='img')
+    q_doc.nameit(name='doc')
+    q_audio.nameit(name='audio')
+    skorche.render_pipeline(filename="split_many", root=q)
