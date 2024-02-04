@@ -1,6 +1,6 @@
 # _skorche_
 
-_skorche_ is (or will be!) a lightweight python library for simple task orchestration and pipeline management. It provides a declarative API for constructing workflows and pipelines out of existing functions and allows different parts of the pipeline to operate asynchronously and scale independently.
+_skorche_ is (or will be!) a lightweight python library for simple task orchestration. It provides a declarative API for constructing workflows and pipelines out of existing functions and allows different parts of the pipeline to operate asynchronously or in parallel.
 
 ```python
 input_files = ['cat1.zip', 'cat2.zip', 'dog1.zip']
@@ -24,20 +24,22 @@ while True:
 
 - **Declarative API**: `skorche` provides an intuitive and straightforward API for defining pipelines.
 - **Pipeline Semantics**: `map` tasks to queues, `chain` together multiple tasks, and `split` and `merge` pipelines to compose complex computational graphs.
-- **Asynchronous Execution**: `skorche` manages thread and process pools allowing tasks to operate in parallel and scale.
-- **Pipeline rendering**: Use `skorche`'s built-in graph renderer to visualise your pipelines.
-- **Graph Analyzer**: (Planned) Profile your pipeline in realtime to identify hotspots or let `skorche` manage load balancing entirely.
+- **Asynchronous Execution**: `skorche` manages thread pools allowing tasks to operate asynchronously. Support for process pools is planned.
+- **Pipeline rendering**: Use `skorche`'s built-in graph renderer to visualise pipelines.
+- **Graph Analyzer**: (Planned) Profile pipeliens in realtime to identify hotspots or let `skorche` manage load balancing entirely.
 
-## Example
+# Example
 
-Pipelines are constructed from instances of `Task`, `Queue` and `Op`. In the following example we will build a pipeline for processing images and documents.
+_Pipelines_ are constructed from instances of `Task`, `Queue` and `Op`. _Tasks_ are the user-defined computational units that do most of the heavy lifting, while _Ops_ are lightweight logical units (eg. `split`, `merge`, `filter`) that act as the basic building blocks of complex topologies. _Queues_ are the edges in the graph that connect _Tasks_ and _Ops_. Each _Queue_ has precisely one producer and one consumer.
 
-### Tasks
+In the following example we will build a pipeline for processing images and documents.
+
+## Tasks
 
 Decorate existing functions with `@skorche.task` to turn them into `Task` instances:
 
 ```python
-@skorche.task(max_workers=4)
+@skorche.task
 def download_file(fname):
     pass
 
@@ -55,7 +57,7 @@ def process_doc(fname):
     pass
 ```
 
-### Queues
+## Queues
 
 Pipeline are computational graphs in which each `Queue` is a directed edge between two nodes, and where each node is a `Tasks` or `Op`. First, instantiate a `Queue` which will act as the input into the whole system:
 
@@ -64,17 +66,21 @@ input_files = ['file1.zip', 'file2.zip', 'file3.zip']
 q_inputs = skorche.Queue(fixed_inputs=input_files)
 ```
 
-### `map` and `chain`
+### Mapping tasks over queues: `map`
 
-The simplest example of a pipeline consists of a function that transforms some input queue into an output queue. `skorche` provides this as a `map`:
+The simplest example of a pipeline consists of a function that can be _mapped_ across some input queue, to produce an output queue. `skorche` provides such a `map`:
 
 ```python
 q_outputs = skorche.map(download_file, q_inputs)
 ```
 
-This line is a purely declarative statement that tells `skorche` to bind the task to the input and output queues. Actual execution of this task is deferred until later.
+This line is a purely declarative statement: it tells `skorche` to bind the task to the input and output queues, but the task function is not yet executed (indeed, the input queue might not even be populated yet).
+
+Execution of all tasks is deferred until a call to `skorche.run()` is made once the entire pipeline has been constructed.
 
 ![map](./graphviz/map.svg)
+
+### Composing tasks: `chain`
 
 In our case, we have a series of composable functions `download_file`, `unzip_file`, so we could write out a series of map bindings:
 
@@ -93,9 +99,11 @@ Any number of tasks can be chained together as long as they are composable from 
 
 ![map](./graphviz/chain.svg)
 
-### Operations: `split`, `batch`, `unbatch`, `merge`
+## Operations: `split`, `batch`, `unbatch`, `merge`
 
-We now have a queue of unzipped folders, each of which either contains an image or a doc, but we have separate functions for processing these: `process_images` and `process_doc`. In this case, we want to split the pipeline:
+We now have a queue of unzipped folders, each of which either contains an image or a doc, but we have separate functions for processing these: `process_images` and `process_doc`. In this case, we want to split the pipeline, which can be done by introducting _Operations_, or `Op` nodes.
+
+### Splitting a queue: `split`
 
 ```python
 def is_image(fname):
@@ -105,11 +113,11 @@ def is_image(fname):
 (q_img, q_doc) = skorche.split(is_image, q_unzipped)
 ```
 
-We now have two queues which are ready to be mapped over by different tasks.
+This tells _skorche_ to create a `Split` node on the graph. The predicate function `is_image` will be evaluated on each input, and the item will be routed to the corresponding output queue.
 
 ![map](./graphviz/split.svg)
 
-The predicate function used by `split` does not need to return `bool`, but its return values must be enumerable and be passed explicitly to `split()`. For example, a splitting operation might classify a task into one of three categories: `'img'`, `'doc'`, `'audio'`:
+_Note_: The predicate function used by `split` does not need to return a `bool`, but its return values must be enumerable and be passed explicitly to `split()`. For example, a splitting operation might classify a task into one of three categories: `'img'`, `'doc'`, `'audio'`:
 
 ```python
 def classify(task_item):
@@ -123,6 +131,8 @@ The order of the predicate values must correspond to the order of the output que
 
 ![map](./graphviz/split_many.svg)
 
+### Batching and unbatching: `batch`, `unbatch`
+
 `process_image` defined above expects a batch of images to process in one go. `skorche` achieves this like so:
 
 ```python
@@ -130,6 +140,10 @@ q_img_batch = skorche.batch(q_img, batch_size=10)
 ```
 
 ![map](./graphviz/batch.svg)
+
+We can also unbatch a queue with `skorche.unbatch(queue)`
+
+### Filtering: `filter`
 
 Maybe some documents are irrelevant to us and we need not process them. `skorche` provides a `filter` to remove these from the pipeline.
 
@@ -147,7 +161,9 @@ q_img_processed = skorche.map(process_images, q_img_batch)
 q_img_processed = skorche.unbatch(q_img_processed)
 ```
 
-and finally merge the two queues back again:
+### Merging multiple queues: `merge`
+
+Merging multiple queues is handled by `merge()`. The queues to be merged should be passed as a tuple. The order in which _skorche_ reads from each queue is unspecified.
 
 ```python
 q_out = skorche.merge((q_img_out, q_doc_out))
@@ -157,7 +173,7 @@ q_out = skorche.merge((q_img_out, q_doc_out))
 
 ### Pipeline rendering
 
-All we have done so far is declare our pipeline. None of the tasks have executed any code yet, but `skorche` has built the pipeline, and can render it:
+All we have done so far is declare our pipeline. None of the tasks have executed any code yet, but `skorche` has built a static model of the pipeline architecture, and can render it using [graphviz](https://graphviz.org/):
 
 ```python
 skorche.render_pipeline(filename="graph", root=q_inputs)
