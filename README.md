@@ -2,6 +2,8 @@
 
 _skorche_ is (or will be!) a lightweight python library for simple task orchestration. It provides a declarative API for constructing workflows and pipelines out of existing functions and allows different parts of the pipeline to operate asynchronously or in parallel.
 
+![demo_pipeline](./graphviz/demo.svg)
+
 ## Features
 
 - **Declarative API**: _skorche_ provides an intuitive and straightforward API for defining pipelines.
