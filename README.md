@@ -109,14 +109,14 @@ We now have two queues which are ready to be mapped over by different tasks.
 
 ![map](./graphviz/split.svg)
 
-The predicate function used by `split` does not need to return `bool`, but its return values must be enumerable and be passed explicitly to `split()`. For example, a splitting operation might classify a task into one of three categories: `img`, `doc`, `audio`:
+The predicate function used by `split` does not need to return `bool`, but its return values must be enumerable and be passed explicitly to `split()`. For example, a splitting operation might classify a task into one of three categories: `'img'`, `'doc'`, `'audio'`:
 
 ```python
 def classify(task_item):
-    # Returns one of `img`, `doc`, `audio`
+    # Returns one of "img", "doc", "audio"
     pass
 
-(q_img, q_doc, q_audio) = skorche.split(classify, unzipped, predicate_values=('img', 'doc', 'audio'))
+(q_img, q_doc, q_audio) = skorche.split(classify, unzipped, predicate_values=("img", "doc", "audio"))
 ```
 
 The order of the predicate values must correspond to the order of the output queues. The graph would look like the following:
@@ -160,7 +160,7 @@ q_out = skorche.merge((q_img_out, q_doc_out))
 All we have done so far is declare our pipeline. None of the tasks have executed any code yet, but `skorche` has built the pipeline, and can render it:
 
 ```python
-skorche.render_pipeline(filename="graph", root=q_input)
+skorche.render_pipeline(filename="graph", root=q_inputs)
 ```
 
 This will traverse the graph starting from the `root` input queue. In the case of multiple input queues, `root=(q1, q2, ...)` will work.
@@ -175,6 +175,8 @@ Now time to run it:
 skorche.run()
 skorche.shutdown()  # blocks until all tasks are done
 ```
+
+Invoking `run()` turns skorche Queues into multiprocessing Queues, submits `Task` nodes to a pool, and runs any `Op` nodes in the main thread. `shutdown()` blocks until all pool tasks have completed.
 
 ### Putting this together
 
