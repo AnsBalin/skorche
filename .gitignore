@@ -2,3 +2,12 @@
 .vscode
 venv/
 graphviz/*
+!graphviz/batch.svg
+!graphviz/chain.svg
+!graphviz/demo.svg
+!graphviz/filter.svg
+!graphviz/merge.svg
+!graphviz/map.svg
+!graphviz/split.svg
+!graphviz/split_many.svg
+!graphviz/unbatch.svg
