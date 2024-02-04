@@ -2,24 +2,6 @@
 
 _skorche_ is (or will be!) a lightweight python library for simple task orchestration. It provides a declarative API for constructing workflows and pipelines out of existing functions and allows different parts of the pipeline to operate asynchronously or in parallel.
 
-```python
-input_files = ['cat1.zip', 'cat2.zip', 'dog1.zip']
-
-q_in = skorche.Queue(input_files)
-q = skorche.chain([download_file, unzip_file], q_in)
-
-(q_cats, q_dogs) = skorche.split(is_cat_or_dog, q)
-q_cats = skorche.map(meow, q_cats)
-q_dogs = skorche.map(woof, q_dogs)
-
-q_out = skorche.merge([q_cats, q_dogs])
-
-skorche.run()
-
-while True:
-    result = q_out.get()
-```
-
 ## Features
 
 - **Declarative API**: _skorche_ provides an intuitive and straightforward API for defining pipelines.
